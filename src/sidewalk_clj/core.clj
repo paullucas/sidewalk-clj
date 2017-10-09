@@ -68,7 +68,7 @@
   "Repeatedly send a grid of random pixels."
   [pixel-count msg]
   (go-loop []
-    (o/show! opc (rand-rgb (:total sidewalk) (:max msg)))
+    (single-send (rand-rgb (:total sidewalk) (:max msg)))
     (when @keep-running
       (<! (timeout (:delay msg)))
       (recur))))
