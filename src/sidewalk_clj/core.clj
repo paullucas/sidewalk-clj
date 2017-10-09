@@ -95,14 +95,13 @@
 (defn start-pattern
   "Stop the current pattern. Start a new pattern."
   [ptn-fn msg]
-  (go
-    (if @keep-running
-      (do (swap! keep-running not)
-          (<! (timeout (:delay msg)))
-          (swap! keep-running not)
-          (ptn-fn msg))
-      (do (swap! keep-running not)
-          (ptn-fn msg)))))
+  (if @keep-running
+    (go (swap! keep-running not)
+        (<! (timeout (:delay msg)))
+        (swap! keep-running not)
+        (ptn-fn msg))
+    (do (swap! keep-running not)
+        (ptn-fn msg))))
 
 (defn pattern-manager-loop
   "Wait for a message, then run specified pattern."
