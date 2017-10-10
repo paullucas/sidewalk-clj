@@ -66,7 +66,7 @@
 
 (defn rand-loop
   "Repeatedly send a grid of random pixels."
-  [pixel-count msg]
+  [msg]
   (go-loop []
     (single-send (rand-rgb (:total sidewalk) (:max msg)))
     (when @keep-running
