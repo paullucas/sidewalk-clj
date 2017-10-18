@@ -1,5 +1,6 @@
 (ns sidewalk-clj.core
   (:require [clojure.core.async :refer [go chan <! >!! go-loop timeout]]
+            [clojure.core.reducers :as r]
             [clj-opc.core :as o]
             [mount.core :as mount])
   (:gen-class))
@@ -34,23 +35,15 @@
 
 (defn rand-pix
   "Generate a pixel with random RGB values."
-  [max-vals]
+  [max-vals _]
   {:r (rand-int (:r max-vals))
    :g (rand-int (:g max-vals))
    :b (rand-int (:b max-vals))})
 
-(defn lazy-rand-rgb
-  "Lazily generate a vector of randomized pixels."
-  [pixel-count max-vals]
-  (->> (repeatedly #(rand-pix max-vals))
-       (take pixel-count)
-       (into [])))
-
 (defn rand-rgb
   "Generate a vector of randomized pixels."
   [pixel-count max-vals]
-  (->> (for [_ (range pixel-count)]
-         (rand-pix max-vals))
+  (->> (r/map (partial rand-pix max-vals) (range pixel-count))
        (into [])))
 
 (defn shift-row
@@ -62,10 +55,10 @@
 (defn shift-grid
   "Shift all rows in grid."
   [rows]
-  (doall (mapv shift-row rows)))
+  (into [] (r/map shift-row rows)))
 
 (defn rand-loop
-  "Repeatedly send a grid of random pixels."
+  "Repeatedly send a flat grid of random pixels."
   [msg]
   (go-loop []
     (single-send (rand-rgb (:total sidewalk) (:max msg)))
@@ -73,24 +66,27 @@
       (<! (timeout (:delay msg)))
       (recur))))
 
+(defn rand-grid
+  "Generate a grid with rows of pixels."
+  [msg]
+  (->> (r/map (fn [_] (rand-rgb (:per-row sidewalk) (:max msg)))
+              (range (:rows sidewalk)))
+       (into [])))
+
 (defn matrix-loop
   ([msg]
-   (->> (for [_ (range (:rows sidewalk))]
-          (rand-rgb (:per-row sidewalk) (:max msg)))
-        (into [])
-        (matrix-loop msg)))
+   (matrix-loop msg (rand-grid msg)))
   ([msg grid]
    (let [current-grid (atom grid)]
      (go-loop []
-       (let [shifted-grid (shift-grid @current-grid)]
-         (->> shifted-grid
-              (reduce concat)
-              (into [])
-              double-send)
-         (when @keep-running
-           (reset! current-grid shifted-grid)
-           (<! (timeout (:delay msg)))
-           (recur)))))))
+       (->> (shift-grid @current-grid)
+            (reset! current-grid)
+            (r/fold concat)
+            (into [])
+            double-send)
+       (when @keep-running
+         (<! (timeout (:delay msg)))
+         (recur))))))
 
 (defn start-pattern
   "Stop the current pattern. Start a new pattern."
