@@ -5,4 +5,5 @@
                  [org.clojure/core.async "0.3.443"]
                  [clj-opc "0.1.1"]
                  [mount "0.1.11"]
-                 [com.rpl/specter "1.0.3"]])
+                 [com.rpl/specter "1.0.3"]]
+  :main sidewalk-clj.core)

@@ -60,11 +60,12 @@
 (defn rand-loop
   "Repeatedly send a flat grid of random pixels."
   [msg]
-  (go-loop []
-    (single-send (rand-rgb (:total sidewalk) (:max msg)))
-    (when @keep-running
-      (<! (timeout (:delay msg)))
-      (recur))))
+  (let [send (if (:soft? msg) single-send double-send)]
+    (go-loop []
+      (send (rand-rgb (:total sidewalk) (:max msg)))
+      (when @keep-running
+        (<! (timeout (:delay msg)))
+        (recur)))))
 
 (defn rand-grid
   "Generate a grid with rows of pixels."
@@ -77,13 +78,14 @@
   ([msg]
    (matrix-loop msg (rand-grid msg)))
   ([msg grid]
-   (let [current-grid (atom grid)]
+   (let [current-grid (atom grid)
+         send (if (:soft? msg) single-send double-send)]
      (go-loop []
        (->> (shift-grid @current-grid)
             (reset! current-grid)
             (r/fold concat)
             (into [])
-            double-send)
+            send)
        (when @keep-running
          (<! (timeout (:delay msg)))
          (recur))))))
@@ -125,14 +127,17 @@
   (mount/start)
   (>!! msg-chan {:type "rand"
                  :delay 500
-                 :max {:r 0 :g 255 :b 256}})
+                 :max {:r 0 :g 255 :b 256}
+                 :soft? true})
   (Thread/sleep 10000)
   (>!! msg-chan {:type "rand"
                  :delay 500
-                 :max {:r 255 :g 0 :b 256}})
+                 :max {:r 255 :g 0 :b 256}
+                 :soft? true})
   (Thread/sleep 10000)
   (>!! msg-chan {:type "matrix"
                  :delay 150
-                 :max {:r 255 :g 0 :b 255}})
+                 :max {:r 255 :g 0 :b 255}
+                 :soft? false})
   (Thread/sleep 10000)
   (mount/stop))
